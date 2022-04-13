@@ -20,7 +20,8 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class Application {
     public static void main(String[] args) throws Exception {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-provider.xml");
+        String configLocation = "spring/dubbo-provider.xml";
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(configLocation);
         context.start();
         System.in.read();
     }

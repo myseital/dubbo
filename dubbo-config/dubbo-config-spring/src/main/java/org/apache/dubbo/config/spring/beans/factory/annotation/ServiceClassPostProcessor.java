@@ -154,6 +154,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
 
         // refactor @since 2.7.7
         serviceAnnotationTypes.forEach(annotationType -> {
+            // 扫描被@Service注解的类
             scanner.addIncludeFilter(new AnnotationTypeFilter(annotationType));
         });
 
@@ -163,6 +164,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
             scanner.scan(packageToScan);
 
             // Finds all BeanDefinitionHolders of @Service whether @ComponentScan scans or not.
+            // 识别@Service注解生成普通的BeanDefinition
             Set<BeanDefinitionHolder> beanDefinitionHolders =
                     findServiceBeanDefinitionHolders(scanner, packageToScan, registry, beanNameGenerator);
 
@@ -281,15 +283,15 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
          * The {@link AnnotationAttributes} of @DubboService annotation
          */
         AnnotationAttributes serviceAnnotationAttributes = getAnnotationAttributes(service, false, false);
-
+        // 获取服务实现类对应的接口
         Class<?> interfaceClass = resolveServiceInterfaceClass(serviceAnnotationAttributes, beanClass);
-
+        // 获取服务实现类对应的bean的名字 如demoServiceImpl
         String annotatedServiceBeanName = beanDefinitionHolder.getBeanName();
-
+        // 生成serviceBeanDefinition
         AbstractBeanDefinition serviceBeanDefinition =
                 buildServiceBeanDefinition(service, serviceAnnotationAttributes, interfaceClass, annotatedServiceBeanName);
 
-        // ServiceBean Bean name
+        // ServiceBean Bean name 如 ServiceBean:org.apache.dubbo.demo.DemoService
         String beanName = generateServiceBeanName(serviceAnnotationAttributes, interfaceClass);
 
         if (scanner.checkCandidate(beanName, serviceBeanDefinition)) { // check duplicated candidate bean

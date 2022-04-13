@@ -50,7 +50,7 @@ public class DubboConfigConfigurationRegistrar implements ImportBeanDefinitionRe
                 importingClassMetadata.getAnnotationAttributes(EnableDubboConfig.class.getName()));
 
         boolean multiple = attributes.getBoolean("multiple");
-
+        // 解析所有继承AbstractConfig类的配置信息
         // Single Config Bindings
         registerBeans(registry, DubboConfigConfiguration.Single.class);
 

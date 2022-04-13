@@ -54,7 +54,10 @@ public class DubboComponentScanRegistrar implements ImportBeanDefinitionRegistra
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
 
         Set<String> packagesToScan = getPackagesToScan(importingClassMetadata);
-
+        // 注册ServiceClassPostProcessor  实现BeanDefinitionRegistryPostProcessor接口
+        // 在spring启动调用postProcessBeanDefinitionRegistry进行扫描，扫描@Service注解类
+        // 生成2个BeanDefinition（普通bean， ServiceBean）
+        // ServiceBean会监听ContextRefreshedEvent事件，一旦spring启动完成，就会进行服务导出（exported）
         registerServiceClassPostProcessor(packagesToScan, registry);
 
         // @since 2.7.6 Register the common beans

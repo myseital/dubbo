@@ -115,6 +115,9 @@ public class ExtensionLoader<T> {
      */
     private Set<String> unacceptableExceptions = new ConcurrentHashSet<>();
 
+    /**
+     * 通过javaSPI加载META-INF/services/文件夹下LoadingStrategy实现类
+     */
     private static volatile LoadingStrategy[] strategies = loadLoadingStrategies();
 
     public static void setLoadingStrategies(LoadingStrategy... strategies) {
@@ -652,6 +655,7 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     private T createExtension(String name, boolean wrap) {
+        // 通过名字获取对应的dubbo扩展类
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null || unacceptableExceptions.contains(name)) {
             throw findException(name);
@@ -659,14 +663,14 @@ public class ExtensionLoader<T> {
         try {
             T instance = (T) EXTENSION_INSTANCES.get(clazz);
             if (instance == null) {
+                // 创建实例
                 EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.getDeclaredConstructor().newInstance());
                 instance = (T) EXTENSION_INSTANCES.get(clazz);
             }
+            // 依赖注入
             injectExtension(instance);
-
-
             if (wrap) {
-
+                // 对实例进行包装处理
                 List<Class<?>> wrapperClassesList = new ArrayList<>();
                 if (cachedWrapperClasses != null) {
                     wrapperClassesList.addAll(cachedWrapperClasses);
@@ -684,7 +688,7 @@ public class ExtensionLoader<T> {
                     }
                 }
             }
-
+            // 初始化实例
             initExtension(instance);
             return instance;
         } catch (Throwable t) {
@@ -801,6 +805,12 @@ public class ExtensionLoader<T> {
         return getExtensionClasses().get(name);
     }
 
+    /**
+     * 获取dubboSPI下所有的扩展类
+     * 如: http=org.apache.dubbo.rpc.protocol.http.HttpProtocol
+     * key为http value 对应扩展类的全限定命
+     * @return Map<String, Class<?>>
+     */
     private Map<String, Class<?>> getExtensionClasses() {
         Map<String, Class<?>> classes = cachedClasses.get();
         if (classes == null) {
@@ -823,9 +833,11 @@ public class ExtensionLoader<T> {
 
         Map<String, Class<?>> extensionClasses = new HashMap<>();
 
+        // 优先级 META-INF/dubbo/internal/ > META-INF/dubbo/ > META-INF/services/
         for (LoadingStrategy strategy : strategies) {
             loadDirectory(extensionClasses, strategy.directory(), type.getName(), strategy.preferExtensionClassLoader(),
                     strategy.overridden(), strategy.excludedPackages());
+            // 兼容历史版本com.alibaba
             loadDirectory(extensionClasses, strategy.directory(), type.getName().replace("org.apache", "com.alibaba"),
                     strategy.preferExtensionClassLoader(), strategy.overridden(), strategy.excludedPackages());
         }
@@ -955,6 +967,7 @@ public class ExtensionLoader<T> {
         if (clazz.isAnnotationPresent(Adaptive.class)) {
             cacheAdaptiveClass(clazz, overridden);
         } else if (isWrapperClass(clazz)) {
+            // 通过构造方法判断是否为wrapper类
             cacheWrapperClass(clazz);
         } else {
             clazz.getConstructor();
@@ -1093,6 +1106,7 @@ public class ExtensionLoader<T> {
     }
 
     private Class<?> createAdaptiveExtensionClass() {
+        // cachedDefaultName表示接口默认的扩展类
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
         ClassLoader classLoader = findClassLoader();
         org.apache.dubbo.common.compiler.Compiler compiler =

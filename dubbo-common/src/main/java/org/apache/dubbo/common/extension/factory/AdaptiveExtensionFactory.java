@@ -33,6 +33,7 @@ public class AdaptiveExtensionFactory implements ExtensionFactory {
     private final List<ExtensionFactory> factories;
 
     public AdaptiveExtensionFactory() {
+        // SpiExtensionFactory跟SpringExtensionFactory
         ExtensionLoader<ExtensionFactory> loader = ExtensionLoader.getExtensionLoader(ExtensionFactory.class);
         List<ExtensionFactory> list = new ArrayList<ExtensionFactory>();
         for (String name : loader.getSupportedExtensions()) {
