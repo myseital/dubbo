@@ -402,6 +402,7 @@ public class ServiceClassPostProcessor implements BeanDefinitionRegistryPostProc
         propertyValues.addPropertyValues(new AnnotationPropertyValuesAdapter(serviceAnnotation, environment, ignoreAttributeNames));
 
         // References "ref" property to annotated-@Service Bean
+        // ref属性赋值为另外一个bean，对应的是被@Service注解的服务实现类对应的bean
         addPropertyReference(builder, "ref", annotatedServiceBeanName);
         // Set interface
         builder.addPropertyValue("interface", interfaceClass.getName());

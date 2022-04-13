@@ -67,7 +67,7 @@ public abstract class DubboBeanUtils {
         // Since 2.5.7 Register @Reference Annotation Bean Processor as an infrastructure Bean
         // 注册ReferenceAnnotationBeanPostProcessor 继承AbstractAnnotationBeanPostProcessor
         // 也就是继承InstantiationAwareBeanPostProcessorAdapter
-        // 所以在spring启动时，在对属性注入时会调用
+        // 所以在spring启动时，在对属性注入时会调用 postProcessPropertyValues（5.1之后改为postProcessProperties）
         // 在这过程中会按照@Reference注解信息生成ReferenceBean对象
         registerInfrastructureBean(registry, ReferenceAnnotationBeanPostProcessor.BEAN_NAME,
                 ReferenceAnnotationBeanPostProcessor.class);

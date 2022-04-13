@@ -203,6 +203,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             throw new IllegalStateException("The invoker of ReferenceConfig(" + url + ") has already destroyed!");
         }
         if (ref == null) {
+            // 引入服务的入口 创建代理对象并赋值给ref
             init();
         }
         return ref;

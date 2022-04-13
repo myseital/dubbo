@@ -76,9 +76,9 @@ public abstract class AnnotatedInterfaceConfigBeanBuilder<C extends AbstractInte
     public final C build() throws Exception {
 
         checkDependencies();
-
+        // 创建ReferenceBean对象
         C configBean = doBuild();
-
+        // 对ReferenceBean对象属性赋值
         configureBean(configBean);
 
         if (logger.isInfoEnabled()) {
@@ -102,7 +102,7 @@ public abstract class AnnotatedInterfaceConfigBeanBuilder<C extends AbstractInte
 
 
     protected void configureBean(C configBean) throws Exception {
-
+        // 将@Reference注解中的配置项赋值给configBean
         preConfigureBean(attributes, configBean);
 
         configureRegistryConfigs(configBean);
@@ -112,7 +112,8 @@ public abstract class AnnotatedInterfaceConfigBeanBuilder<C extends AbstractInte
         configureApplicationConfig(configBean);
 
         configureModuleConfig(configBean);
-
+        // 设置applicationContext、interfaceName、consumer、methods属性，
+        // 并调用ReferenceBean对象的afterPropertiesSet方法
         postConfigureBean(attributes, configBean);
 
     }
