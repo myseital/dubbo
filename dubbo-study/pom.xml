@@ -28,6 +28,11 @@
             <artifactId>dubbo-rpc-http</artifactId>
             <version>${revision}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.dubbo</groupId>
+            <artifactId>dubbo-registry-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
     </dependencies>
 
 </project>

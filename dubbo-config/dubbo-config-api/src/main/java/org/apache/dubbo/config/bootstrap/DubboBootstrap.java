@@ -515,9 +515,10 @@ public class DubboBootstrap {
         if (!initialized.compareAndSet(false, true)) {
             return;
         }
-
+        // 从配置中心获取配置，包括应用配置和全局配置
+        // 把获取到的配置放入到Environment中的externalConfigurationMap和appExternalConfigurationMap中
         ApplicationModel.initFrameworkExts();
-
+        // 并刷新所有的XxConfig的属性（除开ServiceConfig），刷新的意思就是将配置中心的配置覆盖调用XxConfig中的属性
         startConfigCenter();
 
         loadRemoteConfigs();
@@ -608,6 +609,7 @@ public class DubboBootstrap {
             }
         } else {
             for (ConfigCenterConfig configCenterConfig : configCenters) {
+                // 从其他位置获取配置中心的相关属性信息，比如配置中心地址
                 configCenterConfig.refresh();
                 ConfigValidationUtils.validateConfigCenterConfig(configCenterConfig);
             }
@@ -616,10 +618,13 @@ public class DubboBootstrap {
         if (CollectionUtils.isNotEmpty(configCenters)) {
             CompositeDynamicConfiguration compositeDynamicConfiguration = new CompositeDynamicConfiguration();
             for (ConfigCenterConfig configCenter : configCenters) {
-                compositeDynamicConfiguration.addConfiguration(prepareEnvironment(configCenter));
+                // 属性更新后，从远程配置中心获取数据(应用配置，全局配置)
+                DynamicConfiguration dynamicConfiguration = prepareEnvironment(configCenter);
+                compositeDynamicConfiguration.addConfiguration(dynamicConfiguration);
             }
             environment.setDynamicConfiguration(compositeDynamicConfiguration);
         }
+        // 从配置中心取到配置数据后，刷新所有的XxConfig中的属性，除开ServiceConfig
         configManager.refreshAll();
     }
 
@@ -1022,12 +1027,15 @@ public class DubboBootstrap {
             if (!configCenter.checkOrUpdateInited()) {
                 return null;
             }
+            // 动态配置中心，管理台上的配置中心
             DynamicConfiguration dynamicConfiguration = getDynamicConfiguration(configCenter.toUrl());
+            // 如果是zookeeper，获取的就是/dubbo/config/dubbo/dubbo.properties节点中的内容
             String configContent = dynamicConfiguration.getProperties(configCenter.getConfigFile(), configCenter.getGroup());
 
             String appGroup = getApplication().getName();
             String appConfigContent = null;
             if (isNotEmpty(appGroup)) {
+                // 获取的就是/dubbo/config/dubbo-demo-consumer-application/dubbo.properties节点中的内容
                 appConfigContent = dynamicConfiguration.getProperties
                         (isNotEmpty(configCenter.getAppConfigFile()) ? configCenter.getAppConfigFile() : configCenter.getConfigFile(),
                                 appGroup

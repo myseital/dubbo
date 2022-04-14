@@ -11,14 +11,14 @@ import org.apache.dubbo.rpc.Protocol;
 public class Main {
 
     public static void main(String[] args) {
-//        ExtensionLoader<Protocol> extensionLoader = ExtensionLoader.getExtensionLoader(Protocol.class);
-//        Protocol protocol = extensionLoader.getExtension("http", false);
-//        System.out.println(protocol);
-        ExtensionLoader<Car> carExtensionLoader = ExtensionLoader.getExtensionLoader(Car.class);
+        ExtensionLoader<Protocol> extensionLoader = ExtensionLoader.getExtensionLoader(Protocol.class);
+        Protocol protocol = extensionLoader.getAdaptiveExtension();
+        System.out.println(protocol);
+//        ExtensionLoader<Car> carExtensionLoader = ExtensionLoader.getExtensionLoader(Car.class);
 //        Car car = carExtensionLoader.getExtension("car");
 //        System.out.println(car);
-        Car adaptiveExtension = carExtensionLoader.getAdaptiveExtension();
+//        Car adaptiveExtension = carExtensionLoader.getAdaptiveExtension();
 //        carExtensionLoader.getActivateExtension();
-        System.out.println(adaptiveExtension);
+//        System.out.println(adaptiveExtension);
     }
 }

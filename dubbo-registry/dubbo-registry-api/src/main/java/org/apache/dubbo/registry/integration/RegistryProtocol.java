@@ -156,6 +156,7 @@ public class RegistryProtocol implements Protocol {
     // get the parameters which shouldn't been displayed in url string(Starting with .)
     private static String[] getHiddenKeys(URL url) {
         Map<String, String> params = url.getParameters();
+        // 过滤url的参数，找到startsWith(HIDDEN_KEY_PREFIX)的key
         if (CollectionUtils.isNotEmptyMap(params)) {
             return params.keySet().stream()
                     .filter(k -> k.startsWith(HIDDEN_KEY_PREFIX))
@@ -196,29 +197,53 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
-        URL registryUrl = getRegistryUrl(originInvoker);
+        // 导出服务
+        // registry://   ---> RegistryProtocol
+        // zookeeper://  ---> ZookeeperRegistry
+        // dubbo://      ---> DubboProtocol
+        // registry://xxx?xx=xx&registry=zookeeper ---> zookeeper://xxx?xx=xx     表示注册中心
+        URL registryUrl = getRegistryUrl(originInvoker);// zookeeper://42.192.154.95:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-annotation-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.3.7%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddubbo-demo-annotation-provider%26bind.ip%3D192.168.3.7%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%2CsayHelloAsync%26pid%3D94000%26release%3D%26service.name%3DServiceBean%3A%2Forg.apache.dubbo.demo.DemoService%26side%3Dprovider%26timestamp%3D1649959322619&id=registryConfig&pid=94000&timestamp=1649959322614
         // url to export locally
-        URL providerUrl = getProviderUrl(originInvoker);
+        // 得到服务提供者url，表示服务提供者
+        URL providerUrl = getProviderUrl(originInvoker);// dubbo://192.168.3.7:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-annotation-provider&bind.ip=192.168.3.7&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=94000&release=&service.name=ServiceBean:/org.apache.dubbo.demo.DemoService&side=provider&timestamp=1649959322619
 
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
+        // overrideSubscribeUrl是老版本的动态配置监听url，表示了需要监听的服务以及监听的类型（configurators， 这是老版本上的动态配置）
+        // 在服务提供者url的基础上，生成一个overrideSubscribeUrl，协议为provider://，增加参数category=configurators&check=false
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
+        // 一个overrideSubscribeUrl对应一个OverrideListener，用来监听变化事件，监听到overrideSubscribeUrl的变化后，
+        // OverrideListener就会根据变化进行相应处理，具体处理逻辑看OverrideListener的实现
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
-
+        // 在这个方法里会利用providerConfigurationListener和serviceConfigurationListener去重写providerUrl
+        // providerConfigurationListener表示应用级别的动态配置监听器，providerConfigurationListener是RegistyProtocol的一个属性
+        // serviceConfigurationListener表示服务级别的动态配置监听器，serviceConfigurationListener是在每暴露一个服务时就会生成一个
+        // 这两个监听器都是新版本中的监听器
+        // 新版本监听的zk路径是：
+        // 服务： /dubbo/config/dubbo/org.apache.dubbo.demo.DemoService.configurators节点的内容
+        // 应用： /dubbo/config/dubbo/dubbo-demo-provider-application.configurators节点的内容
+        // 注意，要和配置中心的路径区分开来，配置中心的路径是：
+        // 应用：/dubbo/config/dubbo/org.apache.dubbo.demo.DemoService/dubbo.properties节点的内容
+        // 全局：/dubbo/config/dubbo/dubbo.properties节点的内容
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         // export invoker
+        // 根据动态配置重写了providerUrl之后，就会调用DubboProtocol或HttpProtocol去进行导出服务了
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
+        // 得到注册中心-ZookeeperRegistry
         final Registry registry = getRegistry(originInvoker);
+        // 得到存入到注册中心去的providerUrl,会对服务提供者url中的参数进行简化
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
 
         // decide if we need to delay publish
+        //是否需要注册到注册中心
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
+            // 注册服务，把简化后的服务提供者url注册到registryUrl中去
             registry.register(registeredProviderUrl);
         }
 
@@ -230,6 +255,13 @@ public class RegistryProtocol implements Protocol {
         exporter.setSubscribeUrl(overrideSubscribeUrl);
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        // 针对老版本的动态配置，需要把overrideSubscribeListener绑定到overrideSubscribeUrl上去进行监听
+        // 兼容老版本的配置修改，利用overrideSubscribeListener去监听旧版本的动态配置变化
+        // 监听overrideSubscribeUrl   provider://192.168.40.17:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-annotation-provider&bean.name=ServiceBean:org.apache.dubbo.demo.DemoService&bind.ip=192.168.40.17&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello&pid=416332&release=&side=provider&timestamp=1585318241955
+        // 那么新版本的providerConfigurationListener和serviceConfigurationListener是在什么时候进行订阅的呢？在这两个类构造的时候
+        // Deprecated! Subscribe to override rules in 2.6.x or before.
+        // 老版本监听的zk路径是：/dubbo/org.apache.dubbo.demo.DemoService/configurators/override://0.0.0.0/org.apache.dubbo.demo.DemoService?category=configurators&compatible_config=true&dynamic=false&enabled=true&timeout=6000
+        // 监听的是路径的内容，不是节点的内容
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
         notifyExport(exporter);
@@ -248,7 +280,9 @@ public class RegistryProtocol implements Protocol {
     }
 
     private URL overrideUrlWithConfig(URL providerUrl, OverrideListener listener) {
+        // 应用配置，providerConfigurationListener是在属性那里直接初始化好的，providerConfigurationListener会监听配置中心的应用配置信息变动
         providerUrl = providerConfigurationListener.overrideUrl(providerUrl);
+        // 服务配置，new ServiceConfigurationListener的时候回初始化，ServiceConfigurationListener会监听配置中心的服务信息配置信息变动
         ServiceConfigurationListener serviceConfigurationListener = new ServiceConfigurationListener(providerUrl, listener);
         serviceConfigurationListeners.put(providerUrl.getServiceKey(), serviceConfigurationListener);
         return serviceConfigurationListener.overrideUrl(providerUrl);
@@ -260,6 +294,9 @@ public class RegistryProtocol implements Protocol {
 
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
+            // protocol属性的值是哪来的，是在SPI中注入进来的，是一个代理类
+            // 这里实际利用的就是DubboProtocol或HttpProtocol去export  NettyServer
+            // 为什么需要ExporterChangeableWrapper？方便注销已经被导出的服务
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }
@@ -282,6 +319,7 @@ public class RegistryProtocol implements Protocol {
     @SuppressWarnings("unchecked")
     public <T> void reExport(final Invoker<T> originInvoker, URL newInvokerUrl) {
         String key = getCacheKey(originInvoker);
+        // 根据newInvokerUrl进行导出
         ExporterChangeableWrapper<T> exporter = (ExporterChangeableWrapper<T>) bounds.get(key);
         URL registeredUrl = exporter.getRegisterUrl();
 

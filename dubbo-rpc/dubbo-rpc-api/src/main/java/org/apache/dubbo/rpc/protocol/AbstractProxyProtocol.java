@@ -77,14 +77,18 @@ public abstract class AbstractProxyProtocol extends AbstractProtocol {
     @SuppressWarnings("unchecked")
     public <T> Exporter<T> export(final Invoker<T> invoker) throws RpcException {
         final String uri = serviceKey(invoker.getUrl());
+        // 从已经导出的服务中找
         Exporter<T> exporter = (Exporter<T>) exporterMap.getExport(uri);
         if (exporter != null) {
+            // 修改了配置之后
             // When modifying the configuration through override, you need to re-expose the newly modified service.
             if (Objects.equals(exporter.getInvoker().getUrl(), invoker.getUrl())) {
                 return exporter;
             }
         }
+        // 导出一个Runnable，只是起到接收Lambda表达式的效果
         final Runnable runnable = doExport(proxyFactory.getProxy(invoker, true), invoker.getInterface(), invoker.getUrl());
+        // 生成一个Exporter
         exporter = new AbstractExporter<T>(invoker) {
             @Override
             public void afterUnExport() {
@@ -104,7 +108,9 @@ public abstract class AbstractProxyProtocol extends AbstractProtocol {
 
     @Override
     protected <T> Invoker<T> protocolBindingRefer(final Class<T> type, final URL url) throws RpcException {
+        // 先调用doRefer方法，得到一个jsonrpc的客户端，生成一个代理Invoker
         final Invoker<T> target = proxyFactory.getInvoker(doRefer(type, url), type, url);
+        // 然后在生成一个invoker
         Invoker<T> invoker = new AbstractInvoker<T>(type, url) {
             @Override
             protected Result doInvoke(Invocation invocation) throws Throwable {
@@ -113,6 +119,7 @@ public abstract class AbstractProxyProtocol extends AbstractProtocol {
                     // FIXME result is an AsyncRpcResult instance.
                     Throwable e = result.getException();
                     if (e != null) {
+                        // 如果调用结果的异常属于rpc异常，则抛出一个RpcException
                         for (Class<?> rpcException : rpcExceptions) {
                             if (rpcException.isAssignableFrom(e.getClass())) {
                                 throw getRpcException(type, url, invocation, e);
