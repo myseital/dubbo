@@ -88,6 +88,9 @@ public class MockClusterInvoker<T> implements ClusterInvoker<T> {
         return directory.getInterface();
     }
 
+    /**
+     * Invocation封装了调用方法名称，参数类型，参数值，返回类型
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         Result result = null;
@@ -95,18 +98,21 @@ public class MockClusterInvoker<T> implements ClusterInvoker<T> {
         String value = getUrl().getMethodParameter(invocation.getMethodName(), MOCK_KEY, Boolean.FALSE.toString()).trim();
         if (value.length() == 0 || "false".equalsIgnoreCase(value)) {
             //no mock
+            // FailoverClusterInvoker#invoke（调用父类AbstractClusterInvoker的invoke方法）
+            // MockClusterInvoker#invoke–>AbstractClusterInvoker#invoke–>FailoverClusterInvoker#doInvoke
             result = this.invoker.invoke(invocation);
         } else if (value.startsWith("force")) {
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + getUrl());
             }
             //force:direct mock
+            // MockClusterInvoker#doMockInvoke
             result = doMockInvoke(invocation, null);
         } else {
             //fail-mock
             try {
+                // FailoverClusterInvoker#invoke，如果出现异常，再调用MockClusterInvoker#doMockInvoke
                 result = this.invoker.invoke(invocation);
-
                 //fix:#4585
                 if(result.getException() != null && result.getException() instanceof RpcException){
                     RpcException rpcException= (RpcException)result.getException();

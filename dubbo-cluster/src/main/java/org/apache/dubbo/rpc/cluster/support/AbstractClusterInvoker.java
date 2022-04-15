@@ -173,12 +173,15 @@ public abstract class AbstractClusterInvoker<T> implements ClusterInvoker<T> {
         if (invokers.size() == 1) {
             return invokers.get(0);
         }
+        // 使用负载均衡策略选择一个invoker，
         Invoker<T> invoker = loadbalance.select(invokers, getUrl(), invocation);
 
         //If the `invoker` is in the  `selected` or invoker is unavailable && availablecheck is true, reselect.
         if ((selected != null && selected.contains(invoker))
                 || (!invoker.isAvailable() && getUrl() != null && availablecheck)) {
             try {
+                // 如果这个invoker在选举过的列表里，或者这个invoker不可用，使用第二步重新选择，否则返回这次选出的invoker
+                // 优先调用不在已经选举过的列表的服务实例。如果所有服务实例已经被调用过，使用负载均衡策略选举一个可用的。
                 Invoker<T> rInvoker = reselect(loadbalance, invocation, invokers, selected, availablecheck);
                 if (rInvoker != null) {
                     invoker = rInvoker;
@@ -252,14 +255,19 @@ public abstract class AbstractClusterInvoker<T> implements ClusterInvoker<T> {
     @Override
     public Result invoke(final Invocation invocation) throws RpcException {
         checkWhetherDestroyed();
-
+        // 先获取服务提供者列表和负载均衡策略，再发起远程调用
         // binding attachments into invocation.
         Map<String, Object> contextAttachments = RpcContext.getContext().getObjectAttachments();
         if (contextAttachments != null && contextAttachments.size() != 0) {
             ((RpcInvocation) invocation).addObjectAttachments(contextAttachments);
         }
-
+        // 根据路由获取合适的 Invoker 列表
         List<Invoker<T>> invokers = list(invocation);
+        // 负载均衡  判断第一个注册invoker是否带有loadbalance参数，如果没有，默认值是random。
+        //RandomLoadBalance 随机调用
+        //RoundRobinLoadBalance 轮询调用
+        //ConsistentHashLoadBalance 一致性Hash调用
+        //LeastActiveLoadBalance 最少活跃调用
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
         return doInvoke(invocation, invokers, loadbalance);
