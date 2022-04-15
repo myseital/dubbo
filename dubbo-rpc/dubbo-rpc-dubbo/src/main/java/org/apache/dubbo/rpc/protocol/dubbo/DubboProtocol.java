@@ -118,9 +118,9 @@ public class DubboProtocol extends AbstractProtocol {
                         + (message == null ? null : (message.getClass().getName() + ": " + message))
                         + ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress());
             }
-
+            // 转成Invocation对象，要开始用反射执行方法了
             Invocation inv = (Invocation) message;
-            Invoker<?> invoker = getInvoker(channel, inv);
+            Invoker<?> invoker = getInvoker(channel, inv); // 服务实现者
             // need to consider backward-compatibility if it's a callback
             if (Boolean.TRUE.toString().equals(inv.getObjectAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
                 String methodsStr = invoker.getUrl().getParameters().get(METHODS_KEY);
@@ -144,8 +144,11 @@ public class DubboProtocol extends AbstractProtocol {
                     return null;
                 }
             }
+            // 这里设置了，service中才能拿到remoteAddress
             RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
+            // 执行服务，得到结果
             Result result = invoker.invoke(inv);
+            // 返回一个CompletableFuture
             return result.thenApply(Function.identity());
         }
 

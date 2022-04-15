@@ -390,8 +390,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 // RegistryProtocol.refer() 或者 DubboProtocol.refer()
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
                 // MockClusterInvoker-->FailoverClusterInvoker-->RegistryDirectory
-                // --->RegistryDirectory$InvokerDelegate-->ListenerInvokerWrapper-->ProtocolFilterWrapper$CallbackRegistrationInvoker-->ConsumerContextFilter-->FutureFilter-->MonitorFilter-->AsyncToSyncInvoker-->DubboInvoker
-                // --->RegistryDirectory$InvokerDelegate-->ListenerInvokerWrapper-->ProtocolFilterWrapper$CallbackRegistrationInvoker-->ConsumerContextFilter-->FutureFilter-->MonitorFilter-->AsyncToSyncInvoker-->DubboInvoker
+                // --->RegistryDirectory$InvokerDelegate-->ListenerInvokerWrapper-
+                // ->ProtocolFilterWrapper$CallbackRegistrationInvoker-->ConsumerContextFilter
+                // -->FutureFilter-->MonitorFilter-->AsyncToSyncInvoker-->DubboInvoker
             } else {
                 // 如果有多个url
                 // 1. 根据每个url，refer得到对应的invoker

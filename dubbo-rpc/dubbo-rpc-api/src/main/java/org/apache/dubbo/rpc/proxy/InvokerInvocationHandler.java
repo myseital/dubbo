@@ -92,7 +92,8 @@ public class InvokerInvocationHandler implements InvocationHandler {
             rpcInvocation.put(Constants.CONSUMER_MODEL, consumerModel);
             rpcInvocation.put(Constants.METHOD_MODEL, consumerModel.getMethodModel(method));
         }
-
+        // 这里的recreate方法很重要，他会调用AppResponse的recreate方法，
+        // 如果AppResponse对象中存在exception信息，则此方法中会throw这个异常
         return invoker.invoke(rpcInvocation).recreate();
     }
 }
