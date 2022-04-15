@@ -416,7 +416,8 @@ public class DubboProtocol extends AbstractProtocol {
         optimizeSerialization(url);
 
         // create rpc invoker.
-        // clients很重要，为什么一个DubboInvoker会有多个clients，为了提高效率，因为每个client和server之间都会有一个socket, 多个client连的是同一个server
+        // clients很重要，为什么一个DubboInvoker会有多个clients，
+        // 为了提高效率，因为每个client和server之间都会有一个socket, 多个client连的是同一个server
         // 在DubboInvoker发送请求时会轮询clients去发送数据
         DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
         invokers.add(invoker);

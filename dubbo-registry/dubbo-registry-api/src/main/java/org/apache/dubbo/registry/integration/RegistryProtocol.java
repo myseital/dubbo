@@ -498,21 +498,28 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+        // 从registry://的url中获取对应的注册中心，比如zookeeper， 默认为dubbo，dubbo提供了自带的注册中心实现
+        // url由 registry:// 改变为---> zookeeper://
         url = getRegistryUrl(url);
+        // 拿到注册中心实现，ZookeeperRegistry
         Registry registry = getRegistry(url);
+        // 用来解决SimpleRegistry不可用的问题
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
         // group="a,b" or group="*"
+        // qs表示 queryString, 表示url中的参数，表示消费者引入服务时所配置的参数
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
+        // https://dubbo.apache.org/zh/docs/v2.7/user/examples/group-merger/
         String group = qs.get(GROUP_KEY);
         if (group != null && group.length() > 0) {
             if ((COMMA_SPLIT_PATTERN.split(group)).length > 1 || "*".equals(group)) {
+                // group有多个值，这里的cluster为MergeableCluster
                 return doRefer(Cluster.getCluster(MergeableCluster.NAME), registry, type, url, qs);
             }
         }
-
+        // 这里的cluster是cluster的Adaptive对象,扩展点
         Cluster cluster = Cluster.getCluster(qs.get(CLUSTER_KEY));
         return doRefer(cluster, registry, type, url, qs);
     }
@@ -547,6 +554,9 @@ public class RegistryProtocol implements Protocol {
 
     public <T> ClusterInvoker<T> getInvoker(Cluster cluster, Registry registry, Class<T> type, URL url) {
         // FIXME, this method is currently not used, create the right registry before enable.
+        // RegistryDirectory表示动态服务目录，会和注册中心的数据保持同步
+        // type表示一个服务对应一个RegistryDirectory，url表示注册中心地址
+        // 在消费端，最核心的就是RegistryDirectory
         DynamicDirectory<T> directory = new RegistryDirectory<>(type, url);
         return doCreateInvoker(directory, cluster, registry, type);
     }
@@ -555,15 +565,26 @@ public class RegistryProtocol implements Protocol {
         directory.setRegistry(registry);
         directory.setProtocol(protocol);
         // all attributes of REFER_KEY
+        // 引入服务所配置的参数
         Map<String, String> parameters = new HashMap<String, String>(directory.getConsumerUrl().getParameters());
+        // 消费者url
         URL urlToRegistry = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (directory.isShouldRegister()) {
             directory.setRegisteredConsumerUrl(urlToRegistry);
+            // 注册简化后的消费url
             registry.register(directory.getRegisteredConsumerUrl());
         }
+        // 构造路由链,路由链会在引入服务时按路由条件进行过滤
+        // 路由链是动态服务目录中的一个属性，通过路由链可以过滤某些服务提供者
         directory.buildRouterChain(urlToRegistry);
+        // 服务目录需要订阅的几个路径
+        // 当前应用所对应的动态配置目录：/dubbo/config/dubbo/dubbo-demo-consumer-application.configurators
+        // 当前所引入的服务的动态配置目录：/dubbo/config/dubbo/org.apache.dubbo.demo.DemoService:1.1.1:g1.configurators
+        // 当前所引入的服务的提供者目录：/dubbo/org.apache.dubbo.demo.DemoService/providers
+        // 当前所引入的服务的老版本动态配置目录：/dubbo/org.apache.dubbo.demo.DemoService/configurators
+        // 当前所引入的服务的老版本路由器目录：/dubbo/org.apache.dubbo.demo.DemoService/routers
         directory.subscribe(toSubscribeUrl(urlToRegistry));
-
+        // 利用传进来的cluster，join得到invoker, MockClusterWrapper
         return (ClusterInvoker<T>) cluster.join(directory);
     }
 
@@ -676,6 +697,7 @@ public class RegistryProtocol implements Protocol {
     }
 
     /**
+     * 当subscribeUrl对应的数据发生了改变，OverrideListener将收到通知
      * Reexport: the exporter destroy problem in protocol
      * 1.Ensure that the exporter returned by registryprotocol can be normal destroyed
      * 2.No need to re-register to the registry after notify
@@ -709,10 +731,10 @@ public class RegistryProtocol implements Protocol {
             if (matchedUrls.isEmpty()) {
                 return;
             }
-
+            // 对发生了变化的url进行过滤，只取url是override协议，或者参数category等于configurators的url
             this.configurators = Configurator.toConfigurators(classifyUrls(matchedUrls, UrlUtils::isConfigurator))
                     .orElse(configurators);
-
+            // 根据Override协议修改
             doOverrideIfNecessary();
         }
 
@@ -723,7 +745,7 @@ public class RegistryProtocol implements Protocol {
             } else {
                 invoker = originInvoker;
             }
-            //The origin invoker
+            //The origin invoker 当前服务的原始服务提供者url
             URL originUrl = RegistryProtocol.this.getProviderUrl(invoker);
             String key = getCacheKey(originInvoker);
             ExporterChangeableWrapper<?> exporter = bounds.get(key);
@@ -731,14 +753,16 @@ public class RegistryProtocol implements Protocol {
                 LOGGER.warn(new IllegalStateException("error state, exporter should not be null"));
                 return;
             }
-            //The current, may have been merged many times
+            //The current, may have been merged many times 当前服务被导出的url
             Invoker<?> exporterInvoker = exporter.getInvoker();
             URL currentUrl = exporterInvoker == null ? null : exporterInvoker.getUrl();
             //Merged with this configuration
+            //根据configurators修改url，configurators是全量的，并不是某个新增的或删除的，所以是基于原始的url进行修改，并不是基于currentUrl
             URL newUrl = getConfiguredInvokerUrl(configurators, originUrl);
             newUrl = getConfiguredInvokerUrl(providerConfigurationListener.getConfigurators(), newUrl);
             newUrl = getConfiguredInvokerUrl(serviceConfigurationListeners.get(originUrl.getServiceKey())
                     .getConfigurators(), newUrl);
+            // 修改过的url如果和目前的url不相同，则重新按newUrl导出
             if (!newUrl.equals(currentUrl)) {
                 if(newUrl.getParameter(Constants.NEED_REEXPORT, true)) {
                     RegistryProtocol.this.reExport(originInvoker, newUrl);
@@ -773,6 +797,7 @@ public class RegistryProtocol implements Protocol {
         public ServiceConfigurationListener(URL providerUrl, OverrideListener notifyListener) {
             this.providerUrl = providerUrl;
             this.notifyListener = notifyListener;
+            // 订阅 服务接口名+group+version+".configurators"
             this.initWith(DynamicConfiguration.getRuleKey(providerUrl) + CONFIGURATORS_SUFFIX);
         }
 
@@ -789,6 +814,7 @@ public class RegistryProtocol implements Protocol {
     private class ProviderConfigurationListener extends AbstractConfiguratorListener {
 
         public ProviderConfigurationListener() {
+            // 订阅 应用名+".configurators"
             this.initWith(ApplicationModel.getApplication() + CONFIGURATORS_SUFFIX);
         }
 
@@ -800,6 +826,7 @@ public class RegistryProtocol implements Protocol {
          * @return
          */
         private <T> URL overrideUrl(URL providerUrl) {
+            // 通过configurators去修改/装配providerUrl
             return RegistryProtocol.getConfiguredInvokerUrl(configurators, providerUrl);
         }
 
@@ -852,7 +879,7 @@ public class RegistryProtocol implements Protocol {
 
             String key = getCacheKey(this.originInvoker);
             bounds.remove(key);
-
+            // 从注册中心删除服务URL
             Registry registry = RegistryProtocol.this.getRegistry(originInvoker);
             try {
                 registry.unregister(registerUrl);
@@ -860,6 +887,7 @@ public class RegistryProtocol implements Protocol {
                 LOGGER.warn(t.getMessage(), t);
             }
             try {
+                // 解绑当前服务的Listener
                 NotifyListener listener = RegistryProtocol.this.overrideListeners.remove(subscribeUrl);
                 registry.unsubscribe(subscribeUrl, listener);
                 ExtensionLoader.getExtensionLoader(GovernanceRuleRepository.class).getDefaultExtension()

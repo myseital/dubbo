@@ -23,6 +23,7 @@ import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.registry.Registry;
 import org.apache.dubbo.registry.client.ServiceDiscoveryRegistryDirectory;
 import org.apache.dubbo.registry.client.migration.MigrationInvoker;
+import org.apache.dubbo.registry.client.migration.ServiceDiscoveryMigrationInvoker;
 import org.apache.dubbo.registry.support.AbstractRegistryFactory;
 import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.cluster.Cluster;

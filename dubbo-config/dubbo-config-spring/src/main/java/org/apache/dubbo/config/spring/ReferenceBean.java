@@ -111,7 +111,7 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
             init = false;
         }
 
-        // eager init if necessary.
+        // eager init if necessary. 饿汉式
         if (shouldInit()) {
             getObject();
         }

@@ -23,8 +23,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
-@Component("demoServiceComponent")
+@Component(value = "demoServiceComponent")
 public class DemoServiceComponent implements DemoService {
+
     @DubboReference
     private DemoService demoService;
 

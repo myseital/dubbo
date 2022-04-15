@@ -334,6 +334,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     }
 
     public void completeCompoundConfigs(AbstractInterfaceConfig interfaceConfig) {
+        // 和Provider类似，拿consumer、module、application中配置的属性去填充ReferenceConfig的相同的属性
         if (interfaceConfig != null) {
             if (application == null) {
                 setApplication(interfaceConfig.getApplication());

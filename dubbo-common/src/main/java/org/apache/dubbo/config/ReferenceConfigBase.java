@@ -107,6 +107,7 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
 
     public void checkDefault() throws IllegalStateException {
         if (consumer == null) {
+            // 如果如果没有配置Consumer，则在这里生产一个ConsumerConfig对象，并刷新属性值
             consumer = ApplicationModel.getConfigManager()
                     .getDefaultConsumer()
                     .orElse(new ConsumerConfig());
